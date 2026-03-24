@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finanzplaner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-shape shape-1"></div>
+  <div class="bg-shape shape-2"></div>
+
+  <main class="container">
+    <header class="hero">
+      <p class="eyebrow">Dein persönlicher Überblick</p>
+      <h1>Finanzplaner</h1>
+      <p class="subtitle">Erfasse alle Einnahmen und Ausgaben und sieh sofort, wie sich dein Saldo entwickelt.</p>
+    </header>
+
+    <section class="panel form-panel">
+      <h2>Neue Buchung</h2>
+      <form id="entry-form" class="entry-form">
+        <label>
+          Datum
+          <input type="date" id="date" required />
+        </label>
+
+        <label>
+          Art
+          <select id="type" required>
+            <option value="income">Einnahme</option>
+            <option value="expense">Ausgabe</option>
+          </select>
+        </label>
+
+        <label>
+          Kategorie
+          <input type="text" id="category" placeholder="z. B. Miete, Gehalt" required maxlength="40" />
+        </label>
+
+        <label>
+          Betrag
+          <input type="number" id="amount" required min="0.01" step="0.01" placeholder="0,00" />
+        </label>
+
+        <label class="full-width">
+          Notiz
+          <input type="text" id="note" placeholder="Optional" maxlength="80" />
+        </label>
+
+        <button type="submit" class="primary-btn">Buchung speichern</button>
+      </form>
+    </section>
+
+    <section class="panel stats-panel">
+      <div class="stats-head">
+        <h2>Auswertung</h2>
+        <label class="month-filter">
+          Monat
+          <input type="month" id="month-filter" />
+        </label>
+      </div>
+
+      <div class="cards">
+        <article class="card income">
+          <h3>Einnahmen</h3>
+          <p id="income-total">0,00 €</p>
+        </article>
+
+        <article class="card expense">
+          <h3>Ausgaben</h3>
+          <p id="expense-total">0,00 €</p>
+        </article>
+
+        <article class="card balance">
+          <h3>Saldo</h3>
+          <p id="balance-total">0,00 €</p>
+        </article>
+      </div>
+
+      <div class="category-box">
+        <h3>Ausgaben nach Kategorie</h3>
+        <ul id="category-breakdown" class="category-breakdown"></ul>
+      </div>
+    </section>
+
+    <section class="panel list-panel">
+      <div class="list-head">
+        <h2>Buchungen</h2>
+        <button id="clear-all" class="ghost-btn" type="button">Alles löschen</button>
+      </div>
+
+      <p id="empty-state" class="empty-state">Noch keine Buchungen vorhanden.</p>
+      <ul id="entry-list" class="entry-list"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
