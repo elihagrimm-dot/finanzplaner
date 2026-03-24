@@ -1,18 +1,6 @@
-const SUPABASE_URL = "https://xzfdjxbmnfpcqkmjypoc.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_nqgVHNUy9a7YUepEtIuzYA_GzE_vlQq";
+const STORAGE_KEY = "finanzplaner.entries.v1";
 
-const authPanel = document.getElementById("auth-panel");
-const appShell = document.getElementById("app-shell");
-const sessionUser = document.getElementById("session-user");
-const authStatus = document.getElementById("auth-status");
 const appStatus = document.getElementById("app-status");
-
-const authForm = document.getElementById("auth-form");
-const authEmail = document.getElementById("auth-email");
-const authPassword = document.getElementById("auth-password");
-const registerButton = document.getElementById("register-btn");
-const resetPasswordButton = document.getElementById("reset-password-btn");
-const logoutButton = document.getElementById("logout-btn");
 
 const entryForm = document.getElementById("entry-form");
 const dateInput = document.getElementById("date");
@@ -31,382 +19,111 @@ const monthFilter = document.getElementById("month-filter");
 const exportCsvButton = document.getElementById("export-csv");
 const clearAllButton = document.getElementById("clear-all");
 
-let entries = [];
-let currentUser = null;
+let entries = loadEntries();
 
-window.addEventListener("error", (event) => {
-  const message = event && event.message ? event.message : "Unbekannter JavaScript-Fehler.";
-  setAuthStatus(`JavaScript-Fehler: ${message}`, true);
-});
+initializeDefaults();
+render();
+setStatus("Bereit.");
 
-window.addEventListener("unhandledrejection", (event) => {
-  const reason = event && event.reason ? String(event.reason) : "Unbekannte Promise-Ablehnung.";
-  setAuthStatus(`Promise-Fehler: ${reason}`, true);
-});
+entryForm.addEventListener("submit", (event) => {
+  event.preventDefault();
 
-const hasConfig =
-  SUPABASE_URL !== "DEINE_SUPABASE_URL" &&
-  SUPABASE_ANON_KEY !== "DEIN_SUPABASE_ANON_KEY";
+  const date = dateInput.value;
+  const type = typeInput.value;
+  const category = categoryInput.value.trim();
+  const amount = parseAmount(amountInput.value);
+  const note = noteInput.value.trim();
 
-if (!hasConfig) {
-  authStatus.textContent = "Bitte trage in app.js deine Supabase URL und den Anon Key ein. Danach neu laden.";
-  authStatus.className = "auth-status error";
-  authForm.querySelectorAll("input, button").forEach((el) => {
-    el.disabled = true;
-  });
-} else {
-  initializeApp();
-}
-
-async function initializeApp() {
-  try {
-    const createClient = await resolveSupabaseCreateClient();
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    initializeDefaults();
-    bindEvents(supabase);
-    initializeSession(supabase);
-    setAuthStatus("Bereit. Du kannst dich registrieren oder anmelden.");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unbekannter Initialisierungsfehler.";
-    setAuthStatus(message, true);
-    alert(`Initialisierung fehlgeschlagen: ${message}`);
-  }
-}
-
-async function resolveSupabaseCreateClient() {
-  if (window.supabase && typeof window.supabase.createClient === "function") {
-    return window.supabase.createClient;
+  if (!date || !category || Number.isNaN(amount) || amount <= 0) {
+    alert("Bitte Datum, Kategorie und einen gueltigen Betrag eingeben.");
+    return;
   }
 
+  const entry = {
+    id: crypto.randomUUID(),
+    date,
+    type,
+    category,
+    amount,
+    note,
+  };
+
+  entries.unshift(entry);
+  saveEntries();
+  render();
+  entryForm.reset();
+  initializeDefaults();
+  categoryInput.focus();
+  setStatus("Buchung gespeichert.");
+});
+
+monthFilter.addEventListener("change", render);
+
+exportCsvButton.addEventListener("click", () => {
+  exportVisibleEntriesToCsv();
+});
+
+clearAllButton.addEventListener("click", () => {
+  if (entries.length === 0) {
+    return;
+  }
+
+  const confirmed = window.confirm("Möchtest du wirklich alle Buchungen löschen?");
+  if (!confirmed) {
+    return;
+  }
+
+  entries = [];
+  saveEntries();
+  render();
+  setStatus("Alle Buchungen wurden geloescht.");
+});
+
+entryList.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-id]");
+  if (!button) {
+    return;
+  }
+
+  const id = button.dataset.id;
+  entries = entries.filter((entry) => entry.id !== id);
+  saveEntries();
+  render();
+  setStatus("Buchung geloescht.");
+});
+
+function loadEntries() {
   try {
-    const module = await import("https://esm.sh/@supabase/supabase-js@2");
-    if (typeof module.createClient === "function") {
-      return module.createClient;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return [];
     }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(isEntryLike).map((entry) => ({
+      ...entry,
+      amount: Number(entry.amount),
+    }));
   } catch {
-    // Continue to final error below.
-  }
-
-  throw new Error("Supabase-Bibliothek konnte weder ueber CDN noch ueber Fallback geladen werden.");
-}
-
-function bindEvents(supabase) {
-  authForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setAuthStatus("Anmeldung wird geprueft...");
-    await login(supabase);
-  });
-
-  registerButton.addEventListener("click", async () => {
-    setAuthStatus("Registrierung wird gesendet...");
-    await register(supabase);
-  });
-
-  resetPasswordButton.addEventListener("click", async () => {
-    setAuthStatus("Passwort-Reset wird gesendet...");
-    await resetPassword(supabase);
-  });
-
-  logoutButton.addEventListener("click", async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      setAuthStatus(error.message, true);
-      return;
-    }
-    setAuthStatus("Erfolgreich abgemeldet.");
-  });
-
-  entryForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const date = dateInput.value;
-    const type = typeInput.value;
-    const category = categoryInput.value.trim();
-    const amount = parseAmount(amountInput.value);
-    const note = noteInput.value.trim();
-
-    if (!currentUser) {
-      alert("Bitte zuerst anmelden.");
-      return;
-    }
-
-    if (!date || !category || Number.isNaN(amount) || amount <= 0) {
-      alert("Bitte Datum, Kategorie und einen gueltigen Betrag eingeben. Tipp: Beim Betrag Punkt statt Komma verwenden, z. B. 12.50.");
-      return;
-    }
-
-    setAuthStatus("Buchung wird gespeichert...");
-
-    const payload = {
-      user_id: currentUser.id,
-      date,
-      type,
-      category,
-      amount,
-      note,
-    };
-
-    try {
-      const result = await withTimeout(
-        supabase.from("entries").insert(payload),
-        15000,
-        "Speichern hat zu lange gedauert. Bitte Netzwerk/Supabase-Verbindung prüfen."
-      );
-
-      if (result && result.error) {
-        alert(`Speichern fehlgeschlagen: ${result.error.message}`);
-        setAuthStatus(`Speichern fehlgeschlagen: ${result.error.message}`, true);
-        return;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Speichern.";
-
-      if (message.indexOf("zu lange gedauert") >= 0) {
-        try {
-          setAuthStatus("Standard-Speichern blockiert, REST-Fallback wird versucht...");
-          await insertEntryViaRest(supabase, payload);
-          entryForm.reset();
-          initializeDefaults();
-          categoryInput.focus();
-          setAuthStatus("Buchung gespeichert (REST-Fallback).", false);
-          render();
-          loadEntries(supabase);
-          return;
-        } catch (fallbackError) {
-          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "REST-Fallback fehlgeschlagen.";
-          alert(`Speichern fehlgeschlagen: ${fallbackMessage}`);
-          setAuthStatus(`Speichern fehlgeschlagen: ${fallbackMessage}`, true);
-          return;
-        }
-      }
-
-      alert(`Speichern fehlgeschlagen: ${message}`);
-      setAuthStatus(`Speichern fehlgeschlagen: ${message}`, true);
-      return;
-    }
-
-    entryForm.reset();
-    initializeDefaults();
-    categoryInput.focus();
-    setAuthStatus("Buchung gespeichert.");
-    await loadEntries(supabase);
-  });
-
-  monthFilter.addEventListener("change", render);
-
-  exportCsvButton.addEventListener("click", () => {
-    exportVisibleEntriesToCsv();
-  });
-
-  clearAllButton.addEventListener("click", async () => {
-    if (!currentUser || entries.length === 0) {
-      return;
-    }
-
-    const confirmed = window.confirm("Möchtest du wirklich alle Buchungen löschen?");
-    if (!confirmed) {
-      return;
-    }
-
-    const { error } = await supabase
-      .from("entries")
-      .delete()
-      .eq("user_id", currentUser.id);
-
-    if (error) {
-      alert(`Löschen fehlgeschlagen: ${error.message}`);
-      return;
-    }
-
-    await loadEntries(supabase);
-  });
-
-  entryList.addEventListener("click", async (event) => {
-    const button = event.target.closest("button[data-id]");
-    if (!button || !currentUser) {
-      return;
-    }
-
-    const id = button.dataset.id;
-    const { error } = await supabase
-      .from("entries")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", currentUser.id);
-
-    if (error) {
-      alert(`Löschen fehlgeschlagen: ${error.message}`);
-      return;
-    }
-
-    await loadEntries(supabase);
-  });
-
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    if (session && session.user) {
-      currentUser = session.user;
-      showApp(session.user.email || "Angemeldet");
-      await loadEntries(supabase);
-      setAuthStatus("");
-      return;
-    }
-
-    currentUser = null;
-    entries = [];
-    render();
-    showAuth();
-  });
-}
-
-async function initializeSession(supabase) {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    setAuthStatus(error.message, true);
-    return;
-  }
-
-  const session = data && data.session ? data.session : null;
-  if (!session || !session.user) {
-    showAuth();
-    return;
-  }
-
-  currentUser = session.user;
-  showApp(session.user.email || "Angemeldet");
-  await loadEntries(supabase);
-}
-
-async function register(supabase) {
-  try {
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-
-    if (!email || password.length < 6) {
-      setAuthStatus("Bitte gültige E-Mail und Passwort mit mindestens 6 Zeichen eingeben.", true);
-      return;
-    }
-
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setAuthStatus(error.message, true);
-      alert(`Registrierung fehlgeschlagen: ${error.message}`);
-      return;
-    }
-
-    const message = "Registrierung erfolgreich. Prüfe dein E-Mail-Postfach zur Bestätigung und melde dich danach an.";
-    setAuthStatus(message);
-    alert(message);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unbekannter Fehler bei der Registrierung.";
-    setAuthStatus(message, true);
-    alert(`Registrierung fehlgeschlagen: ${message}`);
+    return [];
   }
 }
 
-async function login(supabase) {
-  try {
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-
-    if (!email || !password) {
-      setAuthStatus("Bitte E-Mail und Passwort eingeben.", true);
-      return;
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthStatus(error.message, true);
-      alert(`Anmeldung fehlgeschlagen: ${error.message}`);
-      return;
-    }
-
-    setAuthStatus("Anmeldung erfolgreich.");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unbekannter Fehler bei der Anmeldung.";
-    setAuthStatus(message, true);
-    alert(`Anmeldung fehlgeschlagen: ${message}`);
-  }
+function isEntryLike(value) {
+  return value &&
+    typeof value.id === "string" &&
+    typeof value.date === "string" &&
+    typeof value.type === "string" &&
+    typeof value.category === "string" &&
+    value.type !== "";
 }
 
-async function resetPassword(supabase) {
-  try {
-    const email = authEmail.value.trim();
-    if (!email) {
-      setAuthStatus("Bitte zuerst eine E-Mail-Adresse eingeben.", true);
-      return;
-    }
-
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-
-    if (error) {
-      setAuthStatus(error.message, true);
-      alert(`Passwort-Reset fehlgeschlagen: ${error.message}`);
-      return;
-    }
-
-    const message = "Reset-E-Mail versendet. Bitte pruefe dein Postfach.";
-    setAuthStatus(message);
-    alert(message);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Passwort-Reset.";
-    setAuthStatus(message, true);
-    alert(`Passwort-Reset fehlgeschlagen: ${message}`);
-  }
-}
-
-async function loadEntries(supabase) {
-  if (!currentUser) {
-    entries = [];
-    render();
-    return;
-  }
-
-  try {
-    const result = await withTimeout(
-      supabase
-        .from("entries")
-        .select("id, date, type, category, amount, note")
-        .eq("user_id", currentUser.id)
-        .order("date", { ascending: false })
-        .order("created_at", { ascending: false }),
-      12000,
-      "Laden hat zu lange gedauert."
-    );
-
-    if (result && result.error) {
-      throw new Error(result.error.message);
-    }
-
-    entries = normalizeEntries(result && result.data ? result.data : []);
-    render();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Laden.";
-
-    if (message.indexOf("zu lange gedauert") >= 0) {
-      try {
-        setAuthStatus("Standard-Laden blockiert, REST-Fallback wird versucht...");
-        const restData = await fetchEntriesViaRest(supabase);
-        entries = normalizeEntries(restData);
-        render();
-        setAuthStatus("Buchungen geladen (REST-Fallback).", false);
-        return;
-      } catch (fallbackError) {
-        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "REST-Fallback beim Laden fehlgeschlagen.";
-        setAuthStatus(`Laden fehlgeschlagen: ${fallbackMessage}`, true);
-        return;
-      }
-    }
-
-    setAuthStatus(`Laden fehlgeschlagen: ${message}`, true);
-  }
-}
-
-function normalizeEntries(rawEntries) {
-  return (rawEntries || []).map((entry) => ({
-    ...entry,
-    amount: Number(entry.amount),
-  }));
+function saveEntries() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
 function initializeDefaults() {
@@ -418,25 +135,11 @@ function initializeDefaults() {
   }
 }
 
-function setAuthStatus(message, isError = false) {
-  authStatus.textContent = message;
-  authStatus.className = isError ? "auth-status error" : "auth-status success";
+function setStatus(message, isError = false) {
   if (appStatus) {
     appStatus.textContent = message;
     appStatus.style.color = isError ? "var(--expense)" : "var(--muted)";
   }
-}
-
-function showApp(email) {
-  sessionUser.textContent = `Angemeldet als ${email}`;
-  authPanel.hidden = true;
-  appShell.hidden = false;
-}
-
-function showAuth() {
-  authPanel.hidden = false;
-  appShell.hidden = true;
-  sessionUser.textContent = "";
 }
 
 function render() {
@@ -590,113 +293,6 @@ function formatDate(dateString) {
 
 function parseAmount(value) {
   return Number.parseFloat(String(value).replace(",", "."));
-}
-
-function withTimeout(promise, timeoutMs, timeoutMessage) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
-    }),
-  ]);
-}
-
-async function insertEntryViaRest(supabase, payload) {
-  const accessToken = await getAccessToken(supabase);
-  const response = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/entries`,
-    {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(payload),
-    },
-    15000
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(readSupabaseRestError(text, response.status));
-  }
-}
-
-async function fetchEntriesViaRest(supabase) {
-  const accessToken = await getAccessToken(supabase);
-  const encodedUserId = encodeURIComponent(currentUser.id);
-  const endpoint = `${SUPABASE_URL}/rest/v1/entries?user_id=eq.${encodedUserId}&select=id,date,type,category,amount,note&order=date.desc,created_at.desc`;
-
-  const response = await fetchWithTimeout(
-    endpoint,
-    {
-      method: "GET",
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-    12000
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(readSupabaseRestError(text, response.status));
-  }
-
-  return await response.json();
-}
-
-async function getAccessToken(supabase) {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const session = data && data.session ? data.session : null;
-  if (!session || !session.access_token) {
-    throw new Error("Keine aktive Sitzung gefunden. Bitte neu anmelden.");
-  }
-
-  return session.access_token;
-}
-
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err && err.name === "AbortError") {
-      throw new Error("Verbindung zu Supabase im Fallback ebenfalls abgelaufen (Timeout).");
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-function readSupabaseRestError(rawText, status) {
-  try {
-    const parsed = JSON.parse(rawText);
-    if (parsed && parsed.message) {
-      return `${parsed.message} (HTTP ${status})`;
-    }
-  } catch {
-    // Keep generic fallback below.
-  }
-
-  if (rawText && rawText.trim()) {
-    return `${rawText.trim()} (HTTP ${status})`;
-  }
-
-  return `Unbekannter REST-Fehler (HTTP ${status}).`;
 }
 
 function escapeHtml(value) {
