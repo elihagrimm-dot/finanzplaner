@@ -95,6 +95,58 @@ h1 {
   animation-delay: 0.1s;
 }
 
+.auth-panel {
+  max-width: 560px;
+}
+
+.auth-copy {
+  margin: 10px 0 14px;
+  color: var(--muted);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-status {
+  min-height: 1.4rem;
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+
+.auth-status.success {
+  color: var(--income);
+}
+
+.auth-status.error {
+  color: var(--expense);
+}
+
+.session-panel {
+  margin-bottom: 12px;
+}
+
+.session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-user {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .entry-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

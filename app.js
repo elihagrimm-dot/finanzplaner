@@ -1,4 +1,16 @@
-const STORAGE_KEY = "finanzplaner.entries.v1";
+const SUPABASE_URL = "DEINE_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "DEIN_SUPABASE_ANON_KEY";
+
+const authPanel = document.getElementById("auth-panel");
+const appShell = document.getElementById("app-shell");
+const sessionUser = document.getElementById("session-user");
+const authStatus = document.getElementById("auth-status");
+
+const authForm = document.getElementById("auth-form");
+const authEmail = document.getElementById("auth-email");
+const authPassword = document.getElementById("auth-password");
+const registerButton = document.getElementById("register-btn");
+const logoutButton = document.getElementById("logout-btn");
 
 const entryForm = document.getElementById("entry-form");
 const dateInput = document.getElementById("date");
@@ -16,69 +28,221 @@ const emptyState = document.getElementById("empty-state");
 const monthFilter = document.getElementById("month-filter");
 const clearAllButton = document.getElementById("clear-all");
 
-let entries = loadEntries();
+let entries = [];
+let currentUser = null;
 
-initializeDefaults();
-render();
+const hasConfig =
+  SUPABASE_URL !== "DEINE_SUPABASE_URL" &&
+  SUPABASE_ANON_KEY !== "DEIN_SUPABASE_ANON_KEY";
 
-entryForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-
-  const date = dateInput.value;
-  const type = typeInput.value;
-  const category = categoryInput.value.trim();
-  const amount = Number.parseFloat(amountInput.value);
-  const note = noteInput.value.trim();
-
-  if (!date || !category || Number.isNaN(amount) || amount <= 0) {
-    return;
-  }
-
-  const entry = {
-    id: crypto.randomUUID(),
-    date,
-    type,
-    category,
-    amount,
-    note,
-  };
-
-  entries.unshift(entry);
-  saveEntries();
-  render();
-  entryForm.reset();
+if (!hasConfig) {
+  authStatus.textContent = "Bitte trage in app.js deine Supabase URL und den Anon Key ein. Danach neu laden.";
+  authStatus.className = "auth-status error";
+  authForm.querySelectorAll("input, button").forEach((el) => {
+    el.disabled = true;
+  });
+} else {
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   initializeDefaults();
-  categoryInput.focus();
-});
+  bindEvents(supabase);
+  initializeSession(supabase);
+}
 
-monthFilter.addEventListener("change", render);
+function bindEvents(supabase) {
+  authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await login(supabase);
+  });
 
-clearAllButton.addEventListener("click", () => {
-  if (entries.length === 0) {
+  registerButton.addEventListener("click", async () => {
+    await register(supabase);
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthStatus(error.message, true);
+      return;
+    }
+    setAuthStatus("Erfolgreich abgemeldet.");
+  });
+
+  entryForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const date = dateInput.value;
+    const type = typeInput.value;
+    const category = categoryInput.value.trim();
+    const amount = Number.parseFloat(amountInput.value);
+    const note = noteInput.value.trim();
+
+    if (!date || !category || Number.isNaN(amount) || amount <= 0 || !currentUser) {
+      return;
+    }
+
+    const payload = {
+      user_id: currentUser.id,
+      date,
+      type,
+      category,
+      amount,
+      note,
+    };
+
+    const { error } = await supabase.from("entries").insert(payload);
+    if (error) {
+      alert(`Speichern fehlgeschlagen: ${error.message}`);
+      return;
+    }
+
+    entryForm.reset();
+    initializeDefaults();
+    categoryInput.focus();
+    await loadEntries(supabase);
+  });
+
+  monthFilter.addEventListener("change", render);
+
+  clearAllButton.addEventListener("click", async () => {
+    if (!currentUser || entries.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm("Möchtest du wirklich alle Buchungen löschen?");
+    if (!confirmed) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("entries")
+      .delete()
+      .eq("user_id", currentUser.id);
+
+    if (error) {
+      alert(`Löschen fehlgeschlagen: ${error.message}`);
+      return;
+    }
+
+    await loadEntries(supabase);
+  });
+
+  entryList.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-id]");
+    if (!button || !currentUser) {
+      return;
+    }
+
+    const id = button.dataset.id;
+    const { error } = await supabase
+      .from("entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", currentUser.id);
+
+    if (error) {
+      alert(`Löschen fehlgeschlagen: ${error.message}`);
+      return;
+    }
+
+    await loadEntries(supabase);
+  });
+
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (session?.user) {
+      currentUser = session.user;
+      showApp(session.user.email || "Angemeldet");
+      await loadEntries(supabase);
+      setAuthStatus("");
+      return;
+    }
+
+    currentUser = null;
+    entries = [];
+    render();
+    showAuth();
+  });
+}
+
+async function initializeSession(supabase) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    setAuthStatus(error.message, true);
     return;
   }
 
-  const confirmed = window.confirm("Möchtest du wirklich alle Buchungen löschen?");
-  if (!confirmed) {
+  const session = data?.session;
+  if (!session?.user) {
+    showAuth();
     return;
   }
 
-  entries = [];
-  saveEntries();
+  currentUser = session.user;
+  showApp(session.user.email || "Angemeldet");
+  await loadEntries(supabase);
+}
+
+async function register(supabase) {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+
+  if (!email || password.length < 6) {
+    setAuthStatus("Bitte gültige E-Mail und Passwort mit mindestens 6 Zeichen eingeben.", true);
+    return;
+  }
+
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) {
+    setAuthStatus(error.message, true);
+    return;
+  }
+
+  setAuthStatus("Registrierung erfolgreich. Je nach Supabase-Einstellung bitte E-Mail bestätigen.");
+}
+
+async function login(supabase) {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+
+  if (!email || !password) {
+    setAuthStatus("Bitte E-Mail und Passwort eingeben.", true);
+    return;
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    setAuthStatus(error.message, true);
+    return;
+  }
+
+  setAuthStatus("Anmeldung erfolgreich.");
+}
+
+async function loadEntries(supabase) {
+  if (!currentUser) {
+    entries = [];
+    render();
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("entries")
+    .select("id, date, type, category, amount, note")
+    .eq("user_id", currentUser.id)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    alert(`Laden fehlgeschlagen: ${error.message}`);
+    return;
+  }
+
+  entries = (data || []).map((entry) => ({
+    ...entry,
+    amount: Number(entry.amount),
+  }));
+
   render();
-});
-
-entryList.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-id]");
-  if (!button) {
-    return;
-  }
-
-  const id = button.dataset.id;
-  entries = entries.filter((entry) => entry.id !== id);
-  saveEntries();
-  render();
-});
+}
 
 function initializeDefaults() {
   if (!dateInput.value) {
@@ -89,43 +253,25 @@ function initializeDefaults() {
   }
 }
 
-function loadEntries() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter(isEntryLike).map((entry) => ({
-      ...entry,
-      amount: Number(entry.amount),
-    }));
-  } catch {
-    return [];
-  }
+function setAuthStatus(message, isError = false) {
+  authStatus.textContent = message;
+  authStatus.className = isError ? "auth-status error" : "auth-status success";
 }
 
-function isEntryLike(value) {
-  return value &&
-    typeof value.id === "string" &&
-    typeof value.date === "string" &&
-    typeof value.type === "string" &&
-    typeof value.category === "string" &&
-    value.type !== "";
+function showApp(email) {
+  sessionUser.textContent = `Angemeldet als ${email}`;
+  authPanel.hidden = true;
+  appShell.hidden = false;
 }
 
-function saveEntries() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+function showAuth() {
+  authPanel.hidden = false;
+  appShell.hidden = true;
+  sessionUser.textContent = "";
 }
 
 function render() {
   const visibleEntries = getVisibleEntries();
-
   renderTotals(visibleEntries);
   renderCategories(visibleEntries);
   renderEntryList(visibleEntries);
@@ -232,7 +378,7 @@ function formatDate(dateString) {
 }
 
 function escapeHtml(value) {
-  return value
+  return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
