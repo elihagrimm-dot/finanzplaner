@@ -160,6 +160,25 @@ function bindEvents(supabase) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Speichern.";
+
+      if (message.indexOf("zu lange gedauert") >= 0) {
+        try {
+          setAuthStatus("Standard-Speichern blockiert, REST-Fallback wird versucht...");
+          await insertEntryViaRest(supabase, payload);
+          entryForm.reset();
+          initializeDefaults();
+          categoryInput.focus();
+          setAuthStatus("Buchung gespeichert (REST-Fallback).", false);
+          await loadEntries(supabase);
+          return;
+        } catch (fallbackError) {
+          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "REST-Fallback fehlgeschlagen.";
+          alert(`Speichern fehlgeschlagen: ${fallbackMessage}`);
+          setAuthStatus(`Speichern fehlgeschlagen: ${fallbackMessage}`, true);
+          return;
+        }
+      }
+
       alert(`Speichern fehlgeschlagen: ${message}`);
       setAuthStatus(`Speichern fehlgeschlagen: ${message}`, true);
       return;
@@ -552,6 +571,79 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     }),
   ]);
+}
+
+async function insertEntryViaRest(supabase, payload) {
+  const accessToken = await getAccessToken(supabase);
+  const response = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/entries`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(payload),
+    },
+    15000
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(readSupabaseRestError(text, response.status));
+  }
+}
+
+async function getAccessToken(supabase) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const session = data && data.session ? data.session : null;
+  if (!session || !session.access_token) {
+    throw new Error("Keine aktive Sitzung gefunden. Bitte neu anmelden.");
+  }
+
+  return session.access_token;
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err && err.name === "AbortError") {
+      throw new Error("Verbindung zu Supabase im Fallback ebenfalls abgelaufen (Timeout).");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function readSupabaseRestError(rawText, status) {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (parsed && parsed.message) {
+      return `${parsed.message} (HTTP ${status})`;
+    }
+  } catch {
+    // Keep generic fallback below.
+  }
+
+  if (rawText && rawText.trim()) {
+    return `${rawText.trim()} (HTTP ${status})`;
+  }
+
+  return `Unbekannter REST-Fehler (HTTP ${status}).`;
 }
 
 function escapeHtml(value) {
