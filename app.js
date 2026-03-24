@@ -198,6 +198,7 @@ function render() {
   const visibleEntries = getVisibleEntries();
   renderTotals(visibleEntries);
   renderCategories(visibleEntries);
+  renderStorePie(visibleEntries);
   renderBarChart(visibleEntries);
   renderEntryList(visibleEntries);
 }
@@ -305,6 +306,60 @@ function renderFinancialPie(income, expense, balance) {
     const li = document.createElement("li");
     li.innerHTML = `<span class="legend-name"><span class="legend-dot" style="background:${segment.color}"></span>${segment.label}</span><strong>${formatCurrency(segment.value)} (${percent}%)</strong>`;
     financePieLegend.appendChild(li);
+  }
+}
+
+function renderStorePie(items) {
+  const storePie = document.getElementById("store-pie");
+  const storePieLabel = document.getElementById("store-pie-label");
+  const storePieLegend = document.getElementById("store-pie-legend");
+  const storePieBox = document.getElementById("store-pie-box");
+  if (!storePie || !storePieLabel || !storePieLegend) return;
+
+  const expenseItems = items.filter(function(item) { return item.type === "expense"; });
+  if (expenseItems.length === 0) {
+    storePieBox.style.display = "none";
+    return;
+  }
+
+  const totals = {};
+  for (const item of expenseItems) {
+    const key = item.note && item.note.trim() ? item.note.trim() : "Sonstige";
+    totals[key] = (totals[key] || 0) + item.amount;
+  }
+
+  const sorted = Object.entries(totals).sort(function(a, b) { return b[1] - a[1]; });
+  const hasMultiple = sorted.length > 1 || (sorted.length === 1 && sorted[0][0] !== "Sonstige");
+
+  if (!hasMultiple) {
+    storePieBox.style.display = "none";
+    return;
+  }
+
+  storePieBox.style.display = "";
+  const total = expenseItems.reduce(function(sum, item) { return sum + item.amount; }, 0);
+  let currentAngle = 0;
+  const gradientSegments = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    const angle = (sorted[i][1] / total) * 360;
+    const nextAngle = currentAngle + angle;
+    gradientSegments.push(color + " " + currentAngle.toFixed(2) + "deg " + nextAngle.toFixed(2) + "deg");
+    currentAngle = nextAngle;
+  }
+
+  storePie.style.background = "conic-gradient(" + gradientSegments.join(", ") + ")";
+  storePieLabel.textContent = "Gesamt: " + formatCurrency(total) + " Ausgaben";
+
+  storePieLegend.innerHTML = "";
+  for (let i = 0; i < sorted.length; i++) {
+    const [name, amount] = sorted[i];
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    const percent = Math.round((amount / total) * 100);
+    const li = document.createElement("li");
+    li.innerHTML = "<span class=\"legend-name\"><span class=\"legend-dot\" style=\"background:" + color + "\"></span>" + escapeHtml(name) + "</span><strong>" + formatCurrency(amount) + " (" + percent + "%)</strong>";
+    storePieLegend.appendChild(li);
   }
 }
 
