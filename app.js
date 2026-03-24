@@ -5,6 +5,7 @@ const authPanel = document.getElementById("auth-panel");
 const appShell = document.getElementById("app-shell");
 const sessionUser = document.getElementById("session-user");
 const authStatus = document.getElementById("auth-status");
+const appStatus = document.getElementById("app-status");
 
 const authForm = document.getElementById("auth-form");
 const authEmail = document.getElementById("auth-email");
@@ -350,6 +351,10 @@ function initializeDefaults() {
 function setAuthStatus(message, isError = false) {
   authStatus.textContent = message;
   authStatus.className = isError ? "auth-status error" : "auth-status success";
+  if (appStatus) {
+    appStatus.textContent = message;
+    appStatus.style.color = isError ? "var(--expense)" : "var(--muted)";
+  }
 }
 
 function showApp(email) {
