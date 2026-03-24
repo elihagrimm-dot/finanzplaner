@@ -115,6 +115,12 @@ h1 {
   gap: 10px;
 }
 
+.list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .auth-status {
   min-height: 1.4rem;
   margin: 12px 0 0;

@@ -38,6 +38,7 @@
         <div class="auth-actions">
           <button id="login-btn" type="submit" class="primary-btn">Anmelden</button>
           <button id="register-btn" type="button" class="ghost-btn">Registrieren</button>
+          <button id="reset-password-btn" type="button" class="ghost-btn">Passwort zurücksetzen</button>
         </div>
       </form>
 
@@ -122,7 +123,10 @@
       <section class="panel list-panel">
         <div class="list-head">
           <h2>Buchungen</h2>
-          <button id="clear-all" class="ghost-btn" type="button">Alles löschen</button>
+          <div class="list-actions">
+            <button id="export-csv" class="primary-btn" type="button">CSV exportieren</button>
+            <button id="clear-all" class="ghost-btn" type="button">Alles löschen</button>
+          </div>
         </div>
 
         <p id="empty-state" class="empty-state">Noch keine Buchungen vorhanden.</p>

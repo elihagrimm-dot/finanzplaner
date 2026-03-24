@@ -10,6 +10,7 @@ const authForm = document.getElementById("auth-form");
 const authEmail = document.getElementById("auth-email");
 const authPassword = document.getElementById("auth-password");
 const registerButton = document.getElementById("register-btn");
+const resetPasswordButton = document.getElementById("reset-password-btn");
 const logoutButton = document.getElementById("logout-btn");
 
 const entryForm = document.getElementById("entry-form");
@@ -26,6 +27,7 @@ const categoryBreakdown = document.getElementById("category-breakdown");
 const entryList = document.getElementById("entry-list");
 const emptyState = document.getElementById("empty-state");
 const monthFilter = document.getElementById("month-filter");
+const exportCsvButton = document.getElementById("export-csv");
 const clearAllButton = document.getElementById("clear-all");
 
 let entries = [];
@@ -68,6 +70,11 @@ function bindEvents(supabase) {
   registerButton.addEventListener("click", async () => {
     setAuthStatus("Registrierung wird gesendet...");
     await register(supabase);
+  });
+
+  resetPasswordButton.addEventListener("click", async () => {
+    setAuthStatus("Passwort-Reset wird gesendet...");
+    await resetPassword(supabase);
   });
 
   logoutButton.addEventListener("click", async () => {
@@ -114,6 +121,10 @@ function bindEvents(supabase) {
   });
 
   monthFilter.addEventListener("change", render);
+
+  exportCsvButton.addEventListener("click", () => {
+    exportVisibleEntriesToCsv();
+  });
 
   clearAllButton.addEventListener("click", async () => {
     if (!currentUser || entries.length === 0) {
@@ -242,6 +253,33 @@ async function login(supabase) {
     const message = err instanceof Error ? err.message : "Unbekannter Fehler bei der Anmeldung.";
     setAuthStatus(message, true);
     alert(`Anmeldung fehlgeschlagen: ${message}`);
+  }
+}
+
+async function resetPassword(supabase) {
+  try {
+    const email = authEmail.value.trim();
+    if (!email) {
+      setAuthStatus("Bitte zuerst eine E-Mail-Adresse eingeben.", true);
+      return;
+    }
+
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+    if (error) {
+      setAuthStatus(error.message, true);
+      alert(`Passwort-Reset fehlgeschlagen: ${error.message}`);
+      return;
+    }
+
+    const message = "Reset-E-Mail versendet. Bitte pruefe dein Postfach.";
+    setAuthStatus(message);
+    alert(message);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Passwort-Reset.";
+    setAuthStatus(message, true);
+    alert(`Passwort-Reset fehlgeschlagen: ${message}`);
   }
 }
 
@@ -383,6 +421,48 @@ function renderEntryList(items) {
 
     entryList.appendChild(li);
   }
+}
+
+function exportVisibleEntriesToCsv() {
+  const visibleEntries = getVisibleEntries();
+  if (visibleEntries.length === 0) {
+    alert("Keine Buchungen zum Export im aktuell gewaehlten Zeitraum.");
+    return;
+  }
+
+  const headers = ["Datum", "Art", "Kategorie", "Betrag", "Notiz"];
+  const rows = visibleEntries.map((item) => [
+    item.date,
+    item.type === "income" ? "Einnahme" : "Ausgabe",
+    item.category,
+    item.amount.toFixed(2),
+    item.note || "",
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => toCsvCell(cell)).join(";"))
+    .join("\n");
+
+  const monthPart = monthFilter.value || "alle-monate";
+  const fileName = `finanzplaner-export-${monthPart}.csv`;
+  downloadTextFile(`\uFEFF${csvContent}`, fileName, "text/csv;charset=utf-8;");
+}
+
+function toCsvCell(value) {
+  const text = String(value ?? "").replaceAll('"', '""');
+  return `"${text}"`;
+}
+
+function downloadTextFile(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatCurrency(value) {
