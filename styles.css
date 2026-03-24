@@ -339,6 +339,13 @@ select:focus {
   background: rgba(255, 255, 255, 0.65);
 }
 
+.category-percent {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
 .entry-list {
   list-style: none;
   padding: 0;

@@ -209,8 +209,9 @@ function renderCategories(items) {
   renderCategoryPie(sorted, totalExpense);
 
   for (const [category, total] of sorted) {
+    const percentage = totalExpense > 0 ? Math.round((total / totalExpense) * 100) : 0;
     const li = document.createElement("li");
-    li.innerHTML = `<span>${escapeHtml(category)}</span><strong>${formatCurrency(total)}</strong>`;
+    li.innerHTML = `<span>${escapeHtml(category)}</span><strong>${formatCurrency(total)} <em class="category-percent">(${percentage}%)</em></strong>`;
     categoryBreakdown.appendChild(li);
   }
 }
