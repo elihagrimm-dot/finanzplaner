@@ -165,6 +165,7 @@ function render() {
   const visibleEntries = getVisibleEntries();
   renderTotals(visibleEntries);
   renderCategories(visibleEntries);
+  renderBarChart(visibleEntries);
   renderEntryList(visibleEntries);
 }
 
@@ -267,6 +268,77 @@ function renderFinancialPie(income, expense, balance) {
     const li = document.createElement("li");
     li.innerHTML = `<span class="legend-name"><span class="legend-dot" style="background:${segment.color}"></span>${segment.label}</span><strong>${formatCurrency(segment.value)} (${percent}%)</strong>`;
     financePieLegend.appendChild(li);
+  }
+}
+
+function renderBarChart(items) {
+  const isYearView = yearMode.checked;
+  const selectedMonth = monthFilter.value;
+  const barChartTitle = document.getElementById("bar-chart-title");
+  const barChart = document.getElementById("bar-chart");
+  if (!barChart) return;
+
+  if (barChartTitle) {
+    barChartTitle.textContent = isYearView ? "Monatsverlauf" : "Tagesverlauf";
+  }
+
+  const MONTH_NAMES = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+  const groups = {};
+
+  if (isYearView && selectedMonth) {
+    const year = selectedMonth.slice(0, 4);
+    for (let m = 1; m <= 12; m++) {
+      const key = year + "-" + String(m).padStart(2, "0");
+      groups[key] = { label: MONTH_NAMES[m - 1], income: 0, expense: 0 };
+    }
+  }
+
+  for (const item of items) {
+    if (isYearView) {
+      const key = item.date.slice(0, 7);
+      if (groups[key]) {
+        if (item.type === "income") groups[key].income += item.amount;
+        else groups[key].expense += item.amount;
+      }
+    } else {
+      const key = item.date;
+      const dayNum = parseInt(item.date.slice(8, 10), 10);
+      if (!groups[key]) groups[key] = { label: String(dayNum), income: 0, expense: 0 };
+      if (item.type === "income") groups[key].income += item.amount;
+      else groups[key].expense += item.amount;
+    }
+  }
+
+  const keys = Object.keys(groups).sort();
+  const hasData = keys.some(function(k) { return groups[k].income > 0 || groups[k].expense > 0; });
+
+  if (!hasData) {
+    barChart.innerHTML = "<p class=\"bar-chart-empty\">Noch keine Daten im gewählten Zeitraum.</p>";
+    return;
+  }
+
+  const allValues = [];
+  for (const k of keys) {
+    allValues.push(groups[k].income);
+    allValues.push(groups[k].expense);
+  }
+  const maxVal = Math.max.apply(null, allValues);
+
+  barChart.innerHTML = "";
+  for (const key of keys) {
+    const g = groups[key];
+    if (!isYearView && g.income === 0 && g.expense === 0) continue;
+    const incomeH = maxVal > 0 ? Math.round((g.income / maxVal) * 100) : 0;
+    const expenseH = maxVal > 0 ? Math.round((g.expense / maxVal) * 100) : 0;
+    const group = document.createElement("div");
+    group.className = "bar-group";
+    group.innerHTML =
+      "<div class=\"bar-bars\">" +
+      "<div class=\"bar income-bar\" style=\"height:" + incomeH + "%\" title=\"Einnahmen: " + formatCurrency(g.income) + "\"></div>" +
+      "<div class=\"bar expense-bar\" style=\"height:" + expenseH + "%\" title=\"Ausgaben: " + formatCurrency(g.expense) + "\"></div>" +
+      "</div>" +
+      "<span class=\"bar-label\">" + escapeHtml(g.label) + "</span>";
+    barChart.appendChild(group);
   }
 }
 

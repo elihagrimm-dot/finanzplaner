@@ -401,6 +401,89 @@ select:focus {
   font-size: 0.86rem;
 }
 
+.bar-chart-box {
+  margin-top: 20px;
+}
+
+.bar-chart-box > h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.bar-chart-wrap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 130px;
+  padding: 8px 4px 0;
+}
+
+.bar-chart-empty {
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 0 auto;
+}
+
+.bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bar-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 110px;
+}
+
+.bar {
+  width: 14px;
+  border-radius: 4px 4px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+  cursor: default;
+}
+
+.income-bar {
+  background: var(--income);
+  opacity: 0.85;
+}
+
+.expense-bar {
+  background: var(--expense);
+  opacity: 0.85;
+}
+
+.bar-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.bar-chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.bar-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .entry-list {
   list-style: none;
   padding: 0;
