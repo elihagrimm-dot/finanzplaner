@@ -146,9 +146,22 @@ function bindEvents(supabase) {
       note,
     };
 
-    const { error } = await supabase.from("entries").insert(payload);
-    if (error) {
-      alert(`Speichern fehlgeschlagen: ${error.message}`);
+    try {
+      const result = await withTimeout(
+        supabase.from("entries").insert(payload),
+        15000,
+        "Speichern hat zu lange gedauert. Bitte Netzwerk/Supabase-Verbindung prüfen."
+      );
+
+      if (result && result.error) {
+        alert(`Speichern fehlgeschlagen: ${result.error.message}`);
+        setAuthStatus(`Speichern fehlgeschlagen: ${result.error.message}`, true);
+        return;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Speichern.";
+      alert(`Speichern fehlgeschlagen: ${message}`);
+      setAuthStatus(`Speichern fehlgeschlagen: ${message}`, true);
       return;
     }
 
@@ -530,6 +543,15 @@ function formatDate(dateString) {
 
 function parseAmount(value) {
   return Number.parseFloat(String(value).replace(",", "."));
+}
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    }),
+  ]);
 }
 
 function escapeHtml(value) {
