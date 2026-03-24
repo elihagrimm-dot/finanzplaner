@@ -19,6 +19,7 @@ const financePieLegend = document.getElementById("finance-pie-legend");
 const entryList = document.getElementById("entry-list");
 const emptyState = document.getElementById("empty-state");
 const monthFilter = document.getElementById("month-filter");
+const yearMode = document.getElementById("year-mode");
 const exportCsvButton = document.getElementById("export-csv");
 const clearAllButton = document.getElementById("clear-all");
 
@@ -72,6 +73,10 @@ entryForm.addEventListener("submit", (event) => {
 });
 
 monthFilter.addEventListener("change", render);
+yearMode.addEventListener("change", () => {
+  monthFilter.disabled = yearMode.checked;
+  render();
+});
 
 exportCsvButton.addEventListener("click", () => {
   exportVisibleEntriesToCsv();
@@ -167,6 +172,11 @@ function getVisibleEntries() {
   const selectedMonth = monthFilter.value;
   if (!selectedMonth) {
     return entries;
+  }
+
+  if (yearMode.checked) {
+    const selectedYear = selectedMonth.slice(0, 4);
+    return entries.filter((entry) => entry.date.startsWith(selectedYear));
   }
 
   return entries.filter((entry) => entry.date.startsWith(selectedMonth));

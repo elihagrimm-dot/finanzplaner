@@ -242,6 +242,30 @@ select:focus {
   min-width: 180px;
 }
 
+.filter-controls {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.year-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding-bottom: 4px;
+}
+
+.year-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
 .cards {
   margin-top: 14px;
   display: grid;
