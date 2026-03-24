@@ -34,6 +34,16 @@ const clearAllButton = document.getElementById("clear-all");
 let entries = [];
 let currentUser = null;
 
+window.addEventListener("error", (event) => {
+  const message = event && event.message ? event.message : "Unbekannter JavaScript-Fehler.";
+  setAuthStatus(`JavaScript-Fehler: ${message}`, true);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event && event.reason ? String(event.reason) : "Unbekannte Promise-Ablehnung.";
+  setAuthStatus(`Promise-Fehler: ${reason}`, true);
+});
+
 const hasConfig =
   SUPABASE_URL !== "DEINE_SUPABASE_URL" &&
   SUPABASE_ANON_KEY !== "DEIN_SUPABASE_ANON_KEY";
@@ -200,7 +210,7 @@ function bindEvents(supabase) {
   });
 
   supabase.auth.onAuthStateChange(async (_event, session) => {
-    if (session?.user) {
+    if (session && session.user) {
       currentUser = session.user;
       showApp(session.user.email || "Angemeldet");
       await loadEntries(supabase);
@@ -222,8 +232,8 @@ async function initializeSession(supabase) {
     return;
   }
 
-  const session = data?.session;
-  if (!session?.user) {
+  const session = data && data.session ? data.session : null;
+  if (!session || !session.user) {
     showAuth();
     return;
   }
@@ -482,7 +492,7 @@ function exportVisibleEntriesToCsv() {
 }
 
 function toCsvCell(value) {
-  const text = String(value ?? "").replaceAll('"', '""');
+  const text = String(value == null ? "" : value).split('"').join('""');
   return `"${text}"`;
 }
 
@@ -524,9 +534,9 @@ function parseAmount(value) {
 
 function escapeHtml(value) {
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .split("&").join("&amp;")
+    .split("<").join("&lt;")
+    .split(">").join("&gt;")
+    .split('"').join("&quot;")
+    .split("'").join("&#39;");
 }
