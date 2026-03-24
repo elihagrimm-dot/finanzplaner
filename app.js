@@ -1,5 +1,5 @@
-const SUPABASE_URL = "DEINE_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "DEIN_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://xzfdjxbmnfpcqkmjypoc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_nqgVHNUy9a7YUepEtIuzYA_GzE_vlQq";
 
 const authPanel = document.getElementById("auth-panel");
 const appShell = document.getElementById("app-shell");
@@ -46,9 +46,9 @@ if (!hasConfig) {
   initializeDefaults();
   bindEvents(supabase);
   initializeSession(supabase);
-}
 
-function bindEvents(supabase) {
+const SUPABASE_URL = "https://xzfdjxbmnfpcqkmjypoc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_nqgVHNUy9a7YUepEtIuzYA_GzE_vlQq";
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await login(supabase);
