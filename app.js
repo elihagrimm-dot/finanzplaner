@@ -44,12 +44,13 @@ if (!hasConfig) {
     el.disabled = true;
   });
 } else {
-  try {
-    if (!window.supabase || typeof window.supabase.createClient !== "function") {
-      throw new Error("Supabase-Bibliothek konnte nicht geladen werden.");
-    }
+  initializeApp();
+}
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+async function initializeApp() {
+  try {
+    const createClient = await resolveSupabaseCreateClient();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     initializeDefaults();
     bindEvents(supabase);
     initializeSession(supabase);
@@ -57,7 +58,25 @@ if (!hasConfig) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unbekannter Initialisierungsfehler.";
     setAuthStatus(message, true);
+    alert(`Initialisierung fehlgeschlagen: ${message}`);
   }
+}
+
+async function resolveSupabaseCreateClient() {
+  if (window.supabase && typeof window.supabase.createClient === "function") {
+    return window.supabase.createClient;
+  }
+
+  try {
+    const module = await import("https://esm.sh/@supabase/supabase-js@2");
+    if (typeof module.createClient === "function") {
+      return module.createClient;
+    }
+  } catch {
+    // Continue to final error below.
+  }
+
+  throw new Error("Supabase-Bibliothek konnte weder ueber CDN noch ueber Fallback geladen werden.");
 }
 
 function bindEvents(supabase) {
