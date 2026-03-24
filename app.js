@@ -42,19 +42,31 @@ if (!hasConfig) {
     el.disabled = true;
   });
 } else {
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  initializeDefaults();
-  bindEvents(supabase);
-  initializeSession(supabase);
+  try {
+    if (!window.supabase || typeof window.supabase.createClient !== "function") {
+      throw new Error("Supabase-Bibliothek konnte nicht geladen werden.");
+    }
 
-const SUPABASE_URL = "https://xzfdjxbmnfpcqkmjypoc.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_nqgVHNUy9a7YUepEtIuzYA_GzE_vlQq";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    initializeDefaults();
+    bindEvents(supabase);
+    initializeSession(supabase);
+    setAuthStatus("Bereit. Du kannst dich registrieren oder anmelden.");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unbekannter Initialisierungsfehler.";
+    setAuthStatus(message, true);
+  }
+}
+
+function bindEvents(supabase) {
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    setAuthStatus("Anmeldung wird geprueft...");
     await login(supabase);
   });
 
   registerButton.addEventListener("click", async () => {
+    setAuthStatus("Registrierung wird gesendet...");
     await register(supabase);
   });
 
