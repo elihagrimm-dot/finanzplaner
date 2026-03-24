@@ -169,7 +169,8 @@ function bindEvents(supabase) {
           initializeDefaults();
           categoryInput.focus();
           setAuthStatus("Buchung gespeichert (REST-Fallback).", false);
-          await loadEntries(supabase);
+          render();
+          loadEntries(supabase);
           return;
         } catch (fallbackError) {
           const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "REST-Fallback fehlgeschlagen.";
@@ -361,24 +362,51 @@ async function loadEntries(supabase) {
     return;
   }
 
-  const { data, error } = await supabase
-    .from("entries")
-    .select("id, date, type, category, amount, note")
-    .eq("user_id", currentUser.id)
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false });
+  try {
+    const result = await withTimeout(
+      supabase
+        .from("entries")
+        .select("id, date, type, category, amount, note")
+        .eq("user_id", currentUser.id)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false }),
+      12000,
+      "Laden hat zu lange gedauert."
+    );
 
-  if (error) {
-    alert(`Laden fehlgeschlagen: ${error.message}`);
-    return;
+    if (result && result.error) {
+      throw new Error(result.error.message);
+    }
+
+    entries = normalizeEntries(result && result.data ? result.data : []);
+    render();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unbekannter Fehler beim Laden.";
+
+    if (message.indexOf("zu lange gedauert") >= 0) {
+      try {
+        setAuthStatus("Standard-Laden blockiert, REST-Fallback wird versucht...");
+        const restData = await fetchEntriesViaRest(supabase);
+        entries = normalizeEntries(restData);
+        render();
+        setAuthStatus("Buchungen geladen (REST-Fallback).", false);
+        return;
+      } catch (fallbackError) {
+        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "REST-Fallback beim Laden fehlgeschlagen.";
+        setAuthStatus(`Laden fehlgeschlagen: ${fallbackMessage}`, true);
+        return;
+      }
+    }
+
+    setAuthStatus(`Laden fehlgeschlagen: ${message}`, true);
   }
+}
 
-  entries = (data || []).map((entry) => ({
+function normalizeEntries(rawEntries) {
+  return (rawEntries || []).map((entry) => ({
     ...entry,
     amount: Number(entry.amount),
   }));
-
-  render();
 }
 
 function initializeDefaults() {
@@ -594,6 +622,31 @@ async function insertEntryViaRest(supabase, payload) {
     const text = await response.text();
     throw new Error(readSupabaseRestError(text, response.status));
   }
+}
+
+async function fetchEntriesViaRest(supabase) {
+  const accessToken = await getAccessToken(supabase);
+  const encodedUserId = encodeURIComponent(currentUser.id);
+  const endpoint = `${SUPABASE_URL}/rest/v1/entries?user_id=eq.${encodedUserId}&select=id,date,type,category,amount,note&order=date.desc,created_at.desc`;
+
+  const response = await fetchWithTimeout(
+    endpoint,
+    {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    12000
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(readSupabaseRestError(text, response.status));
+  }
+
+  return await response.json();
 }
 
 async function getAccessToken(supabase) {
