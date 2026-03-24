@@ -289,6 +289,38 @@ select:focus {
   color: var(--muted);
 }
 
+.category-visual {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.category-pie {
+  width: 170px;
+  height: 170px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: conic-gradient(#d7dce8 0deg 360deg);
+  position: relative;
+}
+
+.category-pie::after {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  border: 1px solid rgba(30, 36, 48, 0.08);
+}
+
+.category-pie-label {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .category-breakdown {
   list-style: none;
   margin: 0;
