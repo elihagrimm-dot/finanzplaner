@@ -203,17 +203,21 @@ function render() {
 }
 
 function getVisibleEntries() {
+  let filtered;
+
   if (yearMode.checked) {
     const selectedYear = yearSelect.value;
-    if (!selectedYear) return entries;
-    return entries.filter(function(entry) { return entry.date.startsWith(selectedYear); });
+    filtered = selectedYear
+      ? entries.filter(function(entry) { return entry.date.startsWith(selectedYear); })
+      : entries.slice();
+  } else {
+    const selectedMonth = monthFilter.value;
+    filtered = selectedMonth
+      ? entries.filter((entry) => entry.date.startsWith(selectedMonth))
+      : entries.slice();
   }
 
-  const selectedMonth = monthFilter.value;
-  if (!selectedMonth) {
-    return entries;
-  }
-  return entries.filter((entry) => entry.date.startsWith(selectedMonth));
+  return filtered.sort((a, b) => b.date < a.date ? -1 : b.date > a.date ? 1 : 0);
 }
 
 function renderTotals(items) {
