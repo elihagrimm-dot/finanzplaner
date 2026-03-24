@@ -182,39 +182,55 @@ async function initializeSession(supabase) {
 }
 
 async function register(supabase) {
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
+  try {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
 
-  if (!email || password.length < 6) {
-    setAuthStatus("Bitte gültige E-Mail und Passwort mit mindestens 6 Zeichen eingeben.", true);
-    return;
+    if (!email || password.length < 6) {
+      setAuthStatus("Bitte gültige E-Mail und Passwort mit mindestens 6 Zeichen eingeben.", true);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setAuthStatus(error.message, true);
+      alert(`Registrierung fehlgeschlagen: ${error.message}`);
+      return;
+    }
+
+    const message = "Registrierung erfolgreich. Prüfe dein E-Mail-Postfach zur Bestätigung und melde dich danach an.";
+    setAuthStatus(message);
+    alert(message);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unbekannter Fehler bei der Registrierung.";
+    setAuthStatus(message, true);
+    alert(`Registrierung fehlgeschlagen: ${message}`);
   }
-
-  const { error } = await supabase.auth.signUp({ email, password });
-  if (error) {
-    setAuthStatus(error.message, true);
-    return;
-  }
-
-  setAuthStatus("Registrierung erfolgreich. Je nach Supabase-Einstellung bitte E-Mail bestätigen.");
 }
 
 async function login(supabase) {
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
+  try {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
 
-  if (!email || !password) {
-    setAuthStatus("Bitte E-Mail und Passwort eingeben.", true);
-    return;
+    if (!email || !password) {
+      setAuthStatus("Bitte E-Mail und Passwort eingeben.", true);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthStatus(error.message, true);
+      alert(`Anmeldung fehlgeschlagen: ${error.message}`);
+      return;
+    }
+
+    setAuthStatus("Anmeldung erfolgreich.");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unbekannter Fehler bei der Anmeldung.";
+    setAuthStatus(message, true);
+    alert(`Anmeldung fehlgeschlagen: ${message}`);
   }
-
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    setAuthStatus(error.message, true);
-    return;
-  }
-
-  setAuthStatus("Anmeldung erfolgreich.");
 }
 
 async function loadEntries(supabase) {
