@@ -92,12 +92,20 @@ function bindEvents(supabase) {
     const date = dateInput.value;
     const type = typeInput.value;
     const category = categoryInput.value.trim();
-    const amount = Number.parseFloat(amountInput.value);
+    const amount = parseAmount(amountInput.value);
     const note = noteInput.value.trim();
 
-    if (!date || !category || Number.isNaN(amount) || amount <= 0 || !currentUser) {
+    if (!currentUser) {
+      alert("Bitte zuerst anmelden.");
       return;
     }
+
+    if (!date || !category || Number.isNaN(amount) || amount <= 0) {
+      alert("Bitte Datum, Kategorie und einen gueltigen Betrag eingeben. Tipp: Beim Betrag Punkt statt Komma verwenden, z. B. 12.50.");
+      return;
+    }
+
+    setAuthStatus("Buchung wird gespeichert...");
 
     const payload = {
       user_id: currentUser.id,
@@ -117,6 +125,7 @@ function bindEvents(supabase) {
     entryForm.reset();
     initializeDefaults();
     categoryInput.focus();
+    setAuthStatus("Buchung gespeichert.");
     await loadEntries(supabase);
   });
 
@@ -483,6 +492,10 @@ function formatDate(dateString) {
     month: "2-digit",
     year: "numeric",
   }).format(date);
+}
+
+function parseAmount(value) {
+  return Number.parseFloat(String(value).replace(",", "."));
 }
 
 function escapeHtml(value) {
