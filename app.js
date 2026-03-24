@@ -15,6 +15,7 @@ const balanceTotal = document.getElementById("balance-total");
 const categoryBreakdown = document.getElementById("category-breakdown");
 const categoryPie = document.getElementById("category-pie");
 const categoryPieLabel = document.getElementById("category-pie-label");
+const financePieLegend = document.getElementById("finance-pie-legend");
 const entryList = document.getElementById("entry-list");
 const emptyState = document.getElementById("empty-state");
 const monthFilter = document.getElementById("month-filter");
@@ -185,6 +186,8 @@ function renderTotals(items) {
   incomeTotal.textContent = formatCurrency(income);
   expenseTotal.textContent = formatCurrency(expense);
   balanceTotal.textContent = formatCurrency(balance);
+
+  renderFinancialPie(income, expense, balance);
 }
 
 function renderCategories(items) {
@@ -193,7 +196,6 @@ function renderCategories(items) {
 
   if (expenseItems.length === 0) {
     categoryBreakdown.innerHTML = "<li><span>Keine Ausgaben im gewählten Zeitraum.</span><strong>0,00 €</strong></li>";
-    renderCategoryPie([], 0);
     return;
   }
 
@@ -206,7 +208,6 @@ function renderCategories(items) {
   const sorted = Object.entries(totalsByCategory).sort((a, b) => b[1] - a[1]);
 
   const totalExpense = expenseItems.reduce((sum, item) => sum + item.amount, 0);
-  renderCategoryPie(sorted, totalExpense);
 
   for (const [category, total] of sorted) {
     const percentage = totalExpense > 0 ? Math.round((total / totalExpense) * 100) : 0;
@@ -216,31 +217,47 @@ function renderCategories(items) {
   }
 }
 
-function renderCategoryPie(sortedCategories, totalExpense) {
-  if (!categoryPie || !categoryPieLabel) {
+function renderFinancialPie(income, expense, balance) {
+  if (!categoryPie || !categoryPieLabel || !financePieLegend) {
     return;
   }
 
-  if (!sortedCategories.length || totalExpense <= 0) {
+  const remaining = Math.max(balance, 0);
+  const segmentsData = [
+    { label: "Einnahmen", value: income, color: "#1b8b4a" },
+    { label: "Ausgaben", value: expense, color: "#b03a2e" },
+    { label: "Übrig", value: remaining, color: "#155fa0" },
+  ];
+
+  const total = segmentsData.reduce((sum, item) => sum + item.value, 0);
+
+  if (total <= 0) {
     categoryPie.style.background = "conic-gradient(#d7dce8 0deg 360deg)";
-    categoryPieLabel.textContent = "Noch keine Ausgaben im gewählten Zeitraum.";
+    categoryPieLabel.textContent = "Noch keine Werte im gewählten Zeitraum.";
+    financePieLegend.innerHTML = "";
     return;
   }
 
   let currentAngle = 0;
-  const segments = [];
+  const gradientSegments = [];
 
-  for (let i = 0; i < sortedCategories.length; i += 1) {
-    const total = sortedCategories[i][1];
-    const angle = (total / totalExpense) * 360;
+  for (const segment of segmentsData) {
+    const angle = (segment.value / total) * 360;
     const nextAngle = currentAngle + angle;
-    const color = PIE_COLORS[i % PIE_COLORS.length];
-    segments.push(`${color} ${currentAngle.toFixed(2)}deg ${nextAngle.toFixed(2)}deg`);
+    gradientSegments.push(`${segment.color} ${currentAngle.toFixed(2)}deg ${nextAngle.toFixed(2)}deg`);
     currentAngle = nextAngle;
   }
 
-  categoryPie.style.background = `conic-gradient(${segments.join(", ")})`;
-  categoryPieLabel.textContent = `Gesamtausgaben: ${formatCurrency(totalExpense)}`;
+  categoryPie.style.background = `conic-gradient(${gradientSegments.join(", ")})`;
+  categoryPieLabel.textContent = `Monatsüberblick: ${formatCurrency(income)} Einnahmen`;
+
+  financePieLegend.innerHTML = "";
+  for (const segment of segmentsData) {
+    const percent = total > 0 ? Math.round((segment.value / total) * 100) : 0;
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="legend-name"><span class="legend-dot" style="background:${segment.color}"></span>${segment.label}</span><strong>${formatCurrency(segment.value)} (${percent}%)</strong>`;
+    financePieLegend.appendChild(li);
+  }
 }
 
 function renderEntryList(items) {

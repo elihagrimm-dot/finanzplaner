@@ -321,6 +321,37 @@ select:focus {
   font-size: 0.88rem;
 }
 
+.finance-pie-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(360px, 100%);
+  display: grid;
+  gap: 6px;
+}
+
+.finance-pie-legend li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.legend-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
 .category-breakdown {
   list-style: none;
   margin: 0;
