@@ -13,23 +13,27 @@ create table if not exists public.entries (
 
 alter table public.entries enable row level security;
 
-create policy if not exists "users_can_read_own_entries"
+drop policy if exists "users_can_read_own_entries" on public.entries;
+create policy "users_can_read_own_entries"
 on public.entries
 for select
 using (auth.uid() = user_id);
 
-create policy if not exists "users_can_insert_own_entries"
+drop policy if exists "users_can_insert_own_entries" on public.entries;
+create policy "users_can_insert_own_entries"
 on public.entries
 for insert
 with check (auth.uid() = user_id);
 
-create policy if not exists "users_can_update_own_entries"
+drop policy if exists "users_can_update_own_entries" on public.entries;
+create policy "users_can_update_own_entries"
 on public.entries
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
-create policy if not exists "users_can_delete_own_entries"
+drop policy if exists "users_can_delete_own_entries" on public.entries;
+create policy "users_can_delete_own_entries"
 on public.entries
 for delete
 using (auth.uid() = user_id);
