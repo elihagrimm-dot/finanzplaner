@@ -238,8 +238,9 @@ select:focus {
   flex-wrap: wrap;
 }
 
-.month-filter {
-  min-width: 180px;
+.month-filter,
+.year-filter {
+  min-width: 160px;
 }
 
 .filter-controls {

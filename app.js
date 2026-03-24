@@ -20,6 +20,9 @@ const entryList = document.getElementById("entry-list");
 const emptyState = document.getElementById("empty-state");
 const monthFilter = document.getElementById("month-filter");
 const yearMode = document.getElementById("year-mode");
+const yearSelect = document.getElementById("year-select");
+const monthFilterLabel = document.getElementById("month-filter-label");
+const yearFilterLabel = document.getElementById("year-filter-label");
 const exportCsvButton = document.getElementById("export-csv");
 const clearAllButton = document.getElementById("clear-all");
 
@@ -73,8 +76,16 @@ entryForm.addEventListener("submit", (event) => {
 });
 
 monthFilter.addEventListener("change", render);
+yearSelect.addEventListener("change", render);
 yearMode.addEventListener("change", () => {
-  monthFilter.disabled = yearMode.checked;
+  if (yearMode.checked) {
+    populateYearSelect();
+    monthFilterLabel.style.display = "none";
+    yearFilterLabel.style.display = "";
+  } else {
+    monthFilterLabel.style.display = "";
+    yearFilterLabel.style.display = "none";
+  }
   render();
 });
 
@@ -145,6 +156,28 @@ function saveEntries() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
+function populateYearSelect() {
+  const currentYear = new Date().getFullYear();
+  const yearsInEntries = entries.map(function(e) { return parseInt(e.date.slice(0, 4), 10); });
+  const yearSet = {};
+  yearSet[currentYear] = true;
+  for (const y of yearsInEntries) yearSet[y] = true;
+  const years = Object.keys(yearSet).map(Number).sort(function(a, b) { return b - a; });
+  const previousValue = yearSelect.value;
+  yearSelect.innerHTML = "";
+  for (const y of years) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    yearSelect.appendChild(opt);
+  }
+  if (previousValue && yearSet[parseInt(previousValue, 10)]) {
+    yearSelect.value = previousValue;
+  } else {
+    yearSelect.value = String(currentYear);
+  }
+}
+
 function initializeDefaults() {
   if (!dateInput.value) {
     dateInput.value = new Date().toISOString().slice(0, 10);
@@ -170,16 +203,16 @@ function render() {
 }
 
 function getVisibleEntries() {
+  if (yearMode.checked) {
+    const selectedYear = yearSelect.value;
+    if (!selectedYear) return entries;
+    return entries.filter(function(entry) { return entry.date.startsWith(selectedYear); });
+  }
+
   const selectedMonth = monthFilter.value;
   if (!selectedMonth) {
     return entries;
   }
-
-  if (yearMode.checked) {
-    const selectedYear = selectedMonth.slice(0, 4);
-    return entries.filter((entry) => entry.date.startsWith(selectedYear));
-  }
-
   return entries.filter((entry) => entry.date.startsWith(selectedMonth));
 }
 
@@ -273,6 +306,7 @@ function renderFinancialPie(income, expense, balance) {
 
 function renderBarChart(items) {
   const isYearView = yearMode.checked;
+  const selectedYear = yearSelect.value;
   const selectedMonth = monthFilter.value;
   const barChartTitle = document.getElementById("bar-chart-title");
   const barChart = document.getElementById("bar-chart");
@@ -285,10 +319,9 @@ function renderBarChart(items) {
   const MONTH_NAMES = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
   const groups = {};
 
-  if (isYearView && selectedMonth) {
-    const year = selectedMonth.slice(0, 4);
+  if (isYearView && selectedYear) {
     for (let m = 1; m <= 12; m++) {
-      const key = year + "-" + String(m).padStart(2, "0");
+      const key = selectedYear + "-" + String(m).padStart(2, "0");
       groups[key] = { label: MONTH_NAMES[m - 1], income: 0, expense: 0 };
     }
   }

@@ -61,9 +61,13 @@
       <div class="stats-head">
         <h2>Auswertung</h2>
         <div class="filter-controls">
-          <label class="month-filter">
+          <label class="month-filter" id="month-filter-label">
             Monat
             <input type="month" id="month-filter" />
+          </label>
+          <label class="year-filter" id="year-filter-label" style="display:none">
+            Jahr
+            <select id="year-select"></select>
           </label>
           <label class="year-toggle">
             <input type="checkbox" id="year-mode" />
@@ -126,6 +130,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=20260324-4"></script>
+  <script src="app.js?v=20260324-5"></script>
 </body>
 </html>
